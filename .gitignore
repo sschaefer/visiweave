@@ -1,0 +1,17 @@
+site/ebin/*
+*.sw?
+erl_crash.dump
+*~
+/log
+/scratch
+lib/*
+BuildInfo.txt
+Makefile
+bin
+do-plugins.escript
+erts-7.0
+plugins.config
+rebar
+releases
+site/.prototypes
+site/.rebar

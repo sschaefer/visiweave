@@ -1,0 +1,30 @@
+
+## Name of the nitrogen node
+-name visiweave@127.0.0.1
+
+## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
+## (Disabled by default..use with caution!)
+##-heart
+
+## Enable kernel poll and a few async threads
++K true
++A 5
+
+## Increase number of concurrent ports/sockets
+-env ERL_MAX_PORTS 4096
+
+## Tweak GC to run more often 
+-env ERL_FULLSWEEP_AFTER 10
+
+## Include .beam files for site.
+-pa ./site/ebin
+
+## Include libraries and rebar dependency paths
+-env ERL_LIBS ./lib
+
+## Run code at startup.
+-eval "application:start(nitrogen)"
+-eval "application:start(visiweave_model)"
+
+
+-setcookie rjGP4z8mVxO5CXbvTb7XRWuqca6Kdl0S4Rvz0TGo9wt63ZacCxEpELAtJSK7OpVY
