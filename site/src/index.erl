@@ -12,6 +12,7 @@ title() -> "Hello from vw.erl!".
 
 body() -> 
     #graph_node{ children = Roots } = visiweave_node_server:read_roots(),
+    OutlineBody = [ #outline{ gn_id={index,read_node,binary_to_list(Node)} } || Node <- Roots ],
     [FirstNode|_] = Roots,
     #graph_node{ text = Text } = visiweave_node_server:read_node(FirstNode),
     wf:wire(wf:f("jQuery('.resizable').resizable({handles: \"e, s, se\"})")),
@@ -29,11 +30,7 @@ body() ->
 			    body=
 			    #panel{
 				style="margin-top:0px",
-				body=[
-				    #outline{
-					gn_id={index,read_node,binary_to_list(FirstNode)}
-				    }
-				]
+				body=OutlineBody
 			    }
 			},
 			#tablecell{

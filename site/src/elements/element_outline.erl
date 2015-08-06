@@ -19,6 +19,12 @@
 %% Next: right click menu on title
 %% Next: collapse handled by javascript
 %% Next: uncollapse handled by javascript
+%% Next: scroll bar for outline
+%% Next: scroll bar for text
+%% Next: set size for outline to be screen (not more)
+%% Next: set size for text to be screen (not more)
+%% Next: +/- a la workflowy.com
+%% Next: Hoist a la worflowy.com
 -spec reflect() -> [atom()].
 reflect() -> record_info(fields, outline).
 
