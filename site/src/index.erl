@@ -12,7 +12,7 @@ title() -> "VisiWeave".
 
 body() -> 
     #graph_node{ children = Roots } = visiweave_node_server:read_roots(),
-    OutlineBody = [ #outline{ gn_id={index,read_node,write_node,binary_to_list(Node)} } || Node <- Roots ],
+    OutlineBody = [ #outline{ gn_id={?MODULE,binary_to_list(Node)} } || Node <- Roots ],
     [FirstNode|_] = Roots,
     #graph_node{ text = Text } = visiweave_node_server:read_node(FirstNode),
     wf:wire(wf:f("jQuery('.resizable').resizable({handles: \"e\"})")),
@@ -96,3 +96,15 @@ write_node(Key, Title, Text, ChildList) ->
 	title = list_to_binary(Title),
 	text = list_to_binary(Text),
 	children = [list_to_binary(Child) || Child <- ChildList]}).
+
+new_node() ->
+    New = binary_to_list(visiweave_node_server:next_node()),
+    ?PRINT(New),
+    New.
+
+read_roots() ->
+    #graph_node{ children = Roots } = visiweave_node_server:read_roots(),
+    [ binary_to_list(Root) || Root <- Roots ].
+
+write_roots(Roots) ->
+    visiweave_node_server:write_roots([list_to_binary(Root) || Root <- Roots]).

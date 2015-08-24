@@ -18,8 +18,11 @@
 %% Done: collapse handled by javascript
 %% Done: node write title on blur event
 %% Done: node write text on blur event
-%% Next: node insert
+%% Done: node insert
+%% Design question: undo?
 %% Next: node delete
+%% Next: node right
+%% Next: node left
 %% Next: right click menu on title
 %% Next: scroll bar for outline
 %% Next: scroll bar for text
@@ -30,29 +33,34 @@
 -spec reflect() -> [atom()].
 reflect() -> record_info(fields, outline).
 
-% the gn_id is {Module, Function, Argument}, such that
-% {Title, Text, ChildList} = Module:Function(Argument).
+%%%%%%%% IMPORTANT %%%%%%%%%%
+% the gn_id is {Module, Argument}, such that
+% * Argument is a character list
+% * {Title, Text, ChildList} = Module:read_node(Argument)
+% where Title and Text are strings and ChildList is a list of strings
+% * Module:write_node(Argument, Title, Text, ChildList) writes the information
+% * Argument = Module:new_node() returns a character list corresponding to a new node
 -spec render_element(#outline{}) -> body().
-render_element(#outline{ gn_id={Module, Read, Write, Arg} }) ->
-%    ?PRINT({Module, Read, Write, Arg}),
+render_element(#outline{ gn_id={Module, Arg} }) ->
+%    ?PRINT({Module, Arg}),
     UnitID = wf:temp_id(),
     ArrowID = wf:temp_id(),
     TitleID = wf:temp_id(),
     wf:wire(TitleID, TitleID, #event {
     	type = click,
     	delegate = ?MODULE,
-    	postback = { click, {title, UnitID, TitleID, {Module, Read, Write, Arg} } }
+    	postback = { click, {title, UnitID, TitleID, {Module, Arg} } }
     }),
     wf:wire(TitleID, TitleID, #event {
 	type = focus,
 	delegate = ?MODULE,
-	postback = { focus, {title, UnitID, TitleID, {Module, Read, Write, Arg} } }
+	postback = { focus, {title, UnitID, TitleID, {Module, Arg} } }
     }),
-    { Title, _, ChildList } = Module:Read(Arg),
+    { Title, _, ChildList } = Module:read_node(Arg),
     wf:wire(TitleID, TitleID, #event {
 	type = blur,
 	delegate = ?MODULE,
-	postback = {blur_title, TitleID, {Module, Read, Write, Arg}}
+	postback = {blur_title, TitleID, {Module, Arg}}
     }),
     wf:wire(TitleID, TitleID, #event {
 	type = keypress,
@@ -60,7 +68,16 @@ render_element(#outline{ gn_id={Module, Read, Write, Arg} }) ->
 	    #script { script=wf:f("if (event.ctrlKey && ([105].indexOf(event.which) >= 0)) {
 		event.preventDefault();
 		event.stopPropagation();
-		page.control_key('~p', '~p', event.which); };", [TitleID, Arg]) }
+		var me = $(~p);
+		var node_index = me.index();
+		var key_pattern = /gn_[0-9a-f]{40}/;
+		var parent_key = key_pattern.exec(me.parent().prev().attr('class'));
+		if (parent_key == null) {
+		    parent_key = 'root';
+		} else {
+		    parent_key = parent_key.slice(3,43);
+	        }
+		page.control_key(event.which, ~p, '~p', parent_key, node_index); };", [".wfid_"++TitleID, UnitID, Module]) }
 	]
     }),
     [
@@ -73,7 +90,7 @@ render_element(#outline{ gn_id={Module, Read, Write, Arg} }) ->
 			wf:wire(ArrowID, ArrowID, #event {
 			    type = click,
 			    delegate = ?MODULE,
-			    postback = { click, {expand, UnitID, ArrowID, {Module, Read, Write, Arg} } }
+			    postback = { click, {expand, UnitID, ArrowID, {Module, Arg} } }
 			}),
 			">"
 		end
@@ -82,17 +99,17 @@ render_element(#outline{ gn_id={Module, Read, Write, Arg} }) ->
 	]}
     ].
 
-event({click, {expand, UnitID, ArrowID, { Module, Read, Write, Arg }}}) ->
-%    ?PRINT({arrow, UnitID, ArrowID, { Module, Read, Write, Arg }}),
+event({click, {expand, UnitID, ArrowID, { Module, Arg }}}) ->
+%    ?PRINT({arrow, UnitID, ArrowID, { Module, Arg }}),
     ExpandedArrowID = wf:temp_id(),
     ContractedArrowID = wf:temp_id(),
     wf:replace(ArrowID, [
 	#span{ id=ExpandedArrowID,   body=[#button{ text="V" }] },
 	#span{ id=ContractedArrowID, body=[#button{ text=">" }], style="display: none" } ]
     ),
-    {_, _,  ChildList } = Module:Read(Arg),
+    {_, _,  ChildList } = Module:read_node(Arg),
     Body = [
-	#outline{ gn_id={Module, Read, Write, C} } || C <- ChildList ],
+	#outline{ gn_id={Module, C} } || C <- ChildList ],
     case ChildList of
 	[] -> ok;
 	_ ->
@@ -110,26 +127,57 @@ event({click, {expand, UnitID, ArrowID, { Module, Read, Write, Arg }}}) ->
 	    wf:wire(ContractedArrowID, ContractedArrowID, Event)
     end;
 
-event({focus, {title, _UnitID, _TitleID, { Module, Read, _Write, Arg }}}) ->
+event({focus, {title, _UnitID, _TitleID, { Module, Arg }}}) ->
 % It would be better to use browser "canonical" values for Title and Text;
 % if it becomes a problem, set up a browser side hash from Arg to { title: , text: }
-    { Title, Text, _ } = Module:Read(Arg),
+    { Title, Text, _ } = Module:read_node(Arg),
     wf:set(".gn_"++Arg, Title),
     wf:set(".current_node", Arg),
     wf:set(".textarea", Text);
 
-event({blur_title, TitleID, {Module, Read, Write, Arg}}) ->
-    {OldTitle, Text, ChildList} = Module:Read(Arg),
+event({blur_title, TitleID, {Module, Arg}}) ->
+    {OldTitle, Text, ChildList} = Module:read_node(Arg),
     Title = wf:q(TitleID),
     case Title of
 	OldTitle -> ok;
 	_ ->
-	    Module:Write(Arg, Title, Text, ChildList)
+	    Module:write_node(Arg, Title, Text, ChildList)
     end;
     
 event(Any) ->
     ?PRINT({Any}).
 
-api_event(control_key, _Tag, [_TitleID, _GraphNodeKey, KeyCode]) ->
-    Msg = wf:f("Control-~p pressed",[KeyCode]),
-    wf:flash(Msg).
+api_event(control_key, _Tag, [KeyCode, UnitID, ModuleString, Parent, ChildIndex]) ->
+    %% Msg = wf:f("<~p><~p><~p><~p>",[KeyCode, ModuleString, Parent, ChildIndex]),
+    %% wf:flash(Msg),
+    Module = list_to_existing_atom(ModuleString),
+    case KeyCode of
+    	105 ->
+    	    % ctrl-i - insert a node
+    	    % obtain a new node
+	    
+    	    NewNode = Module:new_node(),
+    	    % insert the new node at the index just after the focused node in the parents list
+    	    % - we need to know the parent key
+    	    % - we need to know the index of the focused node
+	    case Parent of
+		"root" ->
+		    OldRoots = Module:read_roots(),
+		    NewRoots = lists:sublist(OldRoots, ChildIndex) ++
+		    [NewNode] ++
+		    lists:sublist(OldRoots, ChildIndex+1, length(OldRoots)-ChildIndex),
+		    Module:write_roots(NewRoots),
+		    wf:insert_after(UnitID, #outline{ gn_id={Module, NewNode} })
+		    ;
+		_ ->
+		    {Title, Text, OldChildren} = Module:read_node(Parent),
+		    NewChildren = lists:sublist(OldChildren, ChildIndex) ++
+		    [NewNode] ++
+		    lists:sublist(OldChildren, ChildIndex+1, length(OldChildren)-ChildIndex),
+		    Module:write_node(Parent, Title, Text, NewChildren),
+		    wf:insert_after(UnitID, #outline{ gn_id={Module, NewNode} })
+	    end;
+	_ ->
+	    Msg = wf:f("Control-~p pressed",[KeyCode]),
+	    wf:flash(Msg)
+    end.
