@@ -8,7 +8,9 @@
     reflect/0,
     render_element/1,
     event/1,
-    api_event/3
+    api_event/3,
+    push_onto_write_stack/4,
+    pop_from_write_stack/0
 ]).
 
 %% Done: update textarea with node text
@@ -19,7 +21,9 @@
 %% Done: node write title on blur event
 %% Done: node write text on blur event
 %% Done: node insert
-%% Design question: undo?
+%% Next: Undo.  Keep a stack of previous node states, pop and apply them.
+%% - insert node working
+%% - undo title change not working
 %% Next: node delete
 %% Next: node right
 %% Next: node left
@@ -34,15 +38,22 @@
 reflect() -> record_info(fields, outline).
 
 %%%%%%%% IMPORTANT %%%%%%%%%%
-% the gn_id is {Module, Argument}, such that
-% * Argument is a character list
-% * {Title, Text, ChildList} = Module:read_node(Argument)
-% where Title and Text are strings and ChildList is a list of strings
-% * Module:write_node(Argument, Title, Text, ChildList) writes the information
-% * Argument = Module:new_node() returns a character list corresponding to a new node
+% This element requires:
+% a page state key 'undo' used as a stack of changes
+% the gn_id is {Module, Key}, such that
+% Module exports: read_roots, write_roots, read_node, write_node, next_node
+% such that:
+% * Key is a character list of 40 hexadecimal digits
+% * {Title, Text, ChildList} = Module:read_node(Key)
+% where Title and Text are strings and ChildList is a list of Keys
+% * Module:write_node(Key, Title, Text, ChildList) writes the information
+% * Key = Module:new_node() returns a string of 40 hexadecimal digits for a new node
+% * Module:read_roots() returns a list of strings
+% * Module:write_roots() writes a list of strings
+
 -spec render_element(#outline{}) -> body().
 render_element(#outline{ gn_id={Module, Arg} }) ->
-%    ?PRINT({Module, Arg}),
+    wf:wire(#api{ anchor=page, name=control_key, tag=[], delegate=element_outline }),
     UnitID = wf:temp_id(),
     ArrowID = wf:temp_id(),
     TitleID = wf:temp_id(),
@@ -65,7 +76,7 @@ render_element(#outline{ gn_id={Module, Arg} }) ->
     wf:wire(TitleID, TitleID, #event {
 	type = keypress,
 	actions = [
-	    #script { script=wf:f("if (event.ctrlKey && ([105].indexOf(event.which) >= 0)) {
+	    #script { script=wf:f("if (event.ctrlKey && ([105,121,122].indexOf(event.which) >= 0)) {
 		event.preventDefault();
 		event.stopPropagation();
 		var me = $(~p);
@@ -141,6 +152,7 @@ event({blur_title, TitleID, {Module, Arg}}) ->
     case Title of
 	OldTitle -> ok;
 	_ ->
+	    push_onto_write_stack(Arg, OldTitle, Text, ChildList),
 	    Module:write_node(Arg, Title, Text, ChildList)
     end;
     
@@ -148,8 +160,6 @@ event(Any) ->
     ?PRINT({Any}).
 
 api_event(control_key, _Tag, [KeyCode, UnitID, ModuleString, Parent, ChildIndex]) ->
-    %% Msg = wf:f("<~p><~p><~p><~p>",[KeyCode, ModuleString, Parent, ChildIndex]),
-    %% wf:flash(Msg),
     Module = list_to_existing_atom(ModuleString),
     case KeyCode of
     	105 ->
@@ -166,6 +176,7 @@ api_event(control_key, _Tag, [KeyCode, UnitID, ModuleString, Parent, ChildIndex]
 		    NewRoots = lists:sublist(OldRoots, ChildIndex) ++
 		    [NewNode] ++
 		    lists:sublist(OldRoots, ChildIndex+1, length(OldRoots)-ChildIndex),
+		    push_onto_write_stack("root", "", "", OldRoots),
 		    Module:write_roots(NewRoots),
 		    wf:insert_after(UnitID, #outline{ gn_id={Module, NewNode} })
 		    ;
@@ -174,10 +185,43 @@ api_event(control_key, _Tag, [KeyCode, UnitID, ModuleString, Parent, ChildIndex]
 		    NewChildren = lists:sublist(OldChildren, ChildIndex) ++
 		    [NewNode] ++
 		    lists:sublist(OldChildren, ChildIndex+1, length(OldChildren)-ChildIndex),
+		    push_onto_write_stack(Parent, Title, Text, OldChildren),
 		    Module:write_node(Parent, Title, Text, NewChildren),
 		    wf:insert_after(UnitID, #outline{ gn_id={Module, NewNode} })
+	    end;
+	122 ->
+	    % ctrl-z - undo
+	    case pop_from_write_stack() of
+		empty -> ok;
+		{Key, Title, Text, Children} ->
+		    case Key of
+			"root" ->
+			    Module:write_roots(Children);
+			_ ->
+			    Module:write_node(Key, Title, Text, Children)
+		    end
+		    %  * find all instances on the page of the Key
+		    %  * starting with the last (and thus deepest) instance
+		    %    * replace the title
+		    %    * compare the child lists, returning a list of adds/removes
+		    %      * no differences: done
+		    %      * child removed: remove
+		    %      * child added: add collapsed
+		    %      * add/removes look like (add, index, key) or (remove, index)
 	    end;
 	_ ->
 	    Msg = wf:f("Control-~p pressed",[KeyCode]),
 	    wf:flash(Msg)
+    end.
+
+push_onto_write_stack(Key, Title, Text, ChildList) ->
+    wf:state(undo, [{Key, Title, Text, ChildList}|wf:state(undo)]).
+
+pop_from_write_stack() ->
+    case wf:state(undo) of
+	[Top|Remainder] ->
+	    wf:state(undo, Remainder),
+	    Top;
+	[] ->
+	    empty
     end.

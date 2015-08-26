@@ -10,15 +10,15 @@ main() -> #template { file="./site/templates/bare.html" }.
 
 title() -> "VisiWeave".
 
-body() -> 
+body() ->
+    % set up undo stack
+    wf:state(undo, wf:state_default(undo,[])),
     #graph_node{ children = Roots } = visiweave_node_server:read_roots(),
     OutlineBody = [ #outline{ gn_id={?MODULE,binary_to_list(Node)} } || Node <- Roots ],
     [FirstNode|_] = Roots,
     #graph_node{ text = Text } = visiweave_node_server:read_node(FirstNode),
     wf:wire(wf:f("jQuery('.resizable').resizable({handles: \"e\"})")),
     wf:wire(textarea, textarea, #event{ type=blur, postback=blur_text }),
-    % fails if done within an element
-    wf:wire(#api{ name=control_key, tag=[], delegate=element_outline }),
     [
 	#flash{},
 	#panel{
@@ -31,7 +31,7 @@ body() ->
 			cells=[
 			    #tablecell{
 				class="resizable",
-				style="borders-right:1px solid;vertical-align:top",
+				style="border-right:1px solid;vertical-align:top",
 				body=
 				#panel{
 				    style="margin-top:0px",
@@ -60,14 +60,21 @@ vw_element_event(Other) ->
     ?PRINT({vw_element_event, Other}).
 
 event(blur_text) ->
-    Key = list_to_binary(wf:q(current_node)),
-    Text = list_to_binary(wf:q(textarea)),
-    #graph_node{ title = Title,
+    StringKey = wf:q(current_node),
+    Key       = list_to_binary(StringKey),
+    Text      = list_to_binary(wf:q(textarea)),
+    #graph_node{
+	title = Title,
 	text = OldText,
 	children = ChildList } = visiweave_node_server:read_node(Key),
     case Text of
 	OldText -> ok;
 	_ ->
+	    element_outline:push_onto_write_stack(
+		StringKey,
+		binary_to_list(Title),
+		binary_to_list(OldText),
+		[binary_to_list(C) || C <- ChildList]),
 	    visiweave_node_server:write_node(#graph_node{
 		key = Key,
 		title = Title,
