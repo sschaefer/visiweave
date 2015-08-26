@@ -70,7 +70,7 @@ another source of inspiration for this project.
 License
 -------
 
-At this point, the project, aside from components (dynatree, jquery,
+At this point, the project, aside from components (nitrogen, jquery,
 cowboy) obviously the work of other authors, is entirely the product
 of Stephen P. Schaefer, and I make that portion availble under the
 terms of the GNU Affero General Public License version 3.0 or later.
