@@ -19,6 +19,7 @@ body() ->
     #graph_node{ text = Text } = visiweave_node_server:read_node(FirstNode),
     wf:wire(wf:f("jQuery('.resizable').resizable({handles: \"e\"})")),
     wf:wire(textarea, textarea, #event{ type=blur, postback=blur_text }),
+    wf:defer(".gn_"++binary_to_list(FirstNode), #script{ script=wf:f("$(~p).focus()", [".gn_"++binary_to_list(FirstNode)]) }),
     [
 	#flash{},
 	#panel{
@@ -44,7 +45,7 @@ body() ->
 				body=[
 				    #textarea{
 					id="textarea",
-					style="height:99%;width:99%;display:table-cell;",
+					style="height:99%;width:99%;display:table-cell;border:none",
 					text=binary_to_list(Text)},
 				    #hidden{
 					id="current_node", text=binary_to_list(FirstNode)}
@@ -63,6 +64,7 @@ event(blur_text) ->
     StringKey = wf:q(current_node),
     Key       = list_to_binary(StringKey),
     Text      = list_to_binary(wf:q(textarea)),
+    ?PRINT({blur_text, StringKey, Text}),
     #graph_node{
 	title = Title,
 	text = OldText,

@@ -53,7 +53,12 @@ reflect() -> record_info(fields, outline).
 
 -spec render_element(#outline{}) -> body().
 render_element(#outline{ gn_id={Module, Arg} }) ->
-    wf:wire(#api{ anchor=page, name=control_key, tag=[], delegate=element_outline }),
+    case wf:state_default(api_control_key, false) of
+	false ->
+	    wf:wire(#api{ anchor=page, name=control_key, tag=[], delegate=element_outline }),
+	    wf:state(api_control_key, true);
+	_ -> ok
+    end,
     UnitID = wf:temp_id(),
     ArrowID = wf:temp_id(),
     TitleID = wf:temp_id(),
@@ -62,17 +67,23 @@ render_element(#outline{ gn_id={Module, Arg} }) ->
     	delegate = ?MODULE,
     	postback = { click, {title, UnitID, TitleID, {Module, Arg} } }
     }),
-    wf:wire(TitleID, TitleID, #event {
-	type = focus,
-	delegate = ?MODULE,
-	postback = { focus, {title, UnitID, TitleID, {Module, Arg} } }
-    }),
+    wf:wire(TitleID, TitleID, [
+	#event {
+	    type = focus,
+	    delegate = ?MODULE,
+	    actions = #add_class{ class=selected, speed=0 },
+	    postback = { focus, {title, UnitID, TitleID, {Module, Arg} } }
+	}
+    ]),
     { Title, _, ChildList } = Module:read_node(Arg),
-    wf:wire(TitleID, TitleID, #event {
-	type = blur,
-	delegate = ?MODULE,
-	postback = {blur_title, TitleID, {Module, Arg}}
-    }),
+    wf:wire(TitleID, TitleID, [
+	#event {
+	    type = blur,
+	    delegate = ?MODULE,
+	    actions = #remove_class{ class=selected, speed=0 },
+	    postback = {blur_title, TitleID, {Module, Arg}}
+	}
+    ]),
     wf:wire(TitleID, TitleID, #event {
 	type = keypress,
 	actions = [
@@ -111,7 +122,7 @@ render_element(#outline{ gn_id={Module, Arg} }) ->
     ].
 
 event({click, {expand, UnitID, ArrowID, { Module, Arg }}}) ->
-%    ?PRINT({arrow, UnitID, ArrowID, { Module, Arg }}),
+    ?PRINT({click, {expand, UnitID, ArrowID, { Module, Arg }}}),
     ExpandedArrowID = wf:temp_id(),
     ContractedArrowID = wf:temp_id(),
     wf:replace(ArrowID, [
@@ -138,15 +149,17 @@ event({click, {expand, UnitID, ArrowID, { Module, Arg }}}) ->
 	    wf:wire(ContractedArrowID, ContractedArrowID, Event)
     end;
 
-event({focus, {title, _UnitID, _TitleID, { Module, Arg }}}) ->
+event({focus, {title, UnitID, TitleID, { Module, Arg }}}) ->
 % It would be better to use browser "canonical" values for Title and Text;
 % if it becomes a problem, set up a browser side hash from Arg to { title: , text: }
+    ?PRINT({focus, {title, UnitID, TitleID, { Module, Arg }}}),
     { Title, Text, _ } = Module:read_node(Arg),
     wf:set(".gn_"++Arg, Title),
-    wf:set(".current_node", Arg),
-    wf:set(".textarea", Text);
+    wf:set(current_node, Arg),
+    wf:set(textarea, Text);
 
 event({blur_title, TitleID, {Module, Arg}}) ->
+    ?PRINT({blur_title, TitleID, Arg}),
     {OldTitle, Text, ChildList} = Module:read_node(Arg),
     Title = wf:q(TitleID),
     case Title of
