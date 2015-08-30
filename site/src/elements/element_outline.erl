@@ -91,13 +91,13 @@ render_element(#outline{ gn_id={Module, Arg} }) ->
 		event.preventDefault();
 		event.stopPropagation();
 		var me = $(~p);
-		var node_index = me.index();
+		var node_index = me.parent().index();
 		var key_pattern = /gn_[0-9a-f]{40}/;
-		var parent_key = key_pattern.exec(me.parent().prev().attr('class'));
+		var parent_key = key_pattern.exec(me.parent().parent().prev().attr('class'));
 		if (parent_key == null) {
 		    parent_key = 'root';
 		} else {
-		    parent_key = parent_key.slice(3,43);
+		    parent_key = parent_key[0].slice(3,43);
 	        }
 		page.control_key(event.which, ~p, '~p', parent_key, node_index); };", [".wfid_"++TitleID, UnitID, Module]) }
 	]
@@ -122,7 +122,6 @@ render_element(#outline{ gn_id={Module, Arg} }) ->
     ].
 
 event({click, {expand, UnitID, ArrowID, { Module, Arg }}}) ->
-    ?PRINT({click, {expand, UnitID, ArrowID, { Module, Arg }}}),
     ExpandedArrowID = wf:temp_id(),
     ContractedArrowID = wf:temp_id(),
     wf:replace(ArrowID, [
@@ -149,17 +148,15 @@ event({click, {expand, UnitID, ArrowID, { Module, Arg }}}) ->
 	    wf:wire(ContractedArrowID, ContractedArrowID, Event)
     end;
 
-event({focus, {title, UnitID, TitleID, { Module, Arg }}}) ->
+event({focus, {title, _UnitID, _TitleID, { Module, Arg }}}) ->
 % It would be better to use browser "canonical" values for Title and Text;
 % if it becomes a problem, set up a browser side hash from Arg to { title: , text: }
-    ?PRINT({focus, {title, UnitID, TitleID, { Module, Arg }}}),
     { Title, Text, _ } = Module:read_node(Arg),
     wf:set(".gn_"++Arg, Title),
     wf:set(current_node, Arg),
     wf:set(textarea, Text);
 
 event({blur_title, TitleID, {Module, Arg}}) ->
-    ?PRINT({blur_title, TitleID, Arg}),
     {OldTitle, Text, ChildList} = Module:read_node(Arg),
     Title = wf:q(TitleID),
     case Title of
@@ -182,22 +179,22 @@ api_event(control_key, _Tag, [KeyCode, UnitID, ModuleString, Parent, ChildIndex]
     	    NewNode = Module:new_node(),
     	    % insert the new node at the index just after the focused node in the parents list
     	    % - we need to know the parent key
-    	    % - we need to know the index of the focused node
+    	    % - we need to know the index of the focused node - value is zero based
 	    case Parent of
 		"root" ->
 		    OldRoots = Module:read_roots(),
-		    NewRoots = lists:sublist(OldRoots, ChildIndex) ++
+		    NewRoots = lists:sublist(OldRoots, ChildIndex+1) ++
 		    [NewNode] ++
-		    lists:sublist(OldRoots, ChildIndex+1, length(OldRoots)-ChildIndex),
+		    lists:sublist(OldRoots, ChildIndex+2, length(OldRoots)-(ChildIndex+1)),
 		    push_onto_write_stack("root", "", "", OldRoots),
 		    Module:write_roots(NewRoots),
 		    wf:insert_after(UnitID, #outline{ gn_id={Module, NewNode} })
 		    ;
 		_ ->
 		    {Title, Text, OldChildren} = Module:read_node(Parent),
-		    NewChildren = lists:sublist(OldChildren, ChildIndex) ++
+		    NewChildren = lists:sublist(OldChildren, ChildIndex+1) ++
 		    [NewNode] ++
-		    lists:sublist(OldChildren, ChildIndex+1, length(OldChildren)-ChildIndex),
+		    lists:sublist(OldChildren, ChildIndex+2, length(OldChildren)-(ChildIndex+1)),
 		    push_onto_write_stack(Parent, Title, Text, OldChildren),
 		    Module:write_node(Parent, Title, Text, NewChildren),
 		    wf:insert_after(UnitID, #outline{ gn_id={Module, NewNode} })
