@@ -28,7 +28,7 @@ So, what's the big idea?  First, a *rooted* *ordered* *directed*
 * The graph: nodes have labels, data (we'll start with text; later we
 might expand to other media) and ordered links to other nodes.  The
 label should tell a person (or procedure) what the data is about.  If
-what is being descrbied is source code, the label might be a function
+what is being described is source code, the label might be a function
 name and the data the function definition.  The ordered links lead
 (unidirectionally) to whatever else one might want to know from that
 node.  Example: a node represents a file, which links to function
@@ -36,11 +36,11 @@ definitions which occur in that file.  Example: a node represents an
 out call graph point, with links to out calls from a function.
 Example: the same, except in calls.  Example: a node represents a file
 system directory, with links to nodes representing files in that
-directory.  Example: A node represents a configuratio file, with links
+directory.  Example: A node represents a configuration file, with links
 representing objects mentioned in that configuration (e.g., hosts).
 Example: a node represents the configuration of a host, with one link
 taking you to the hardware configuration (possibly represented
-hiearachically), another link taking you to the set of configuration
+hierarchically), another link taking you to the set of configuration
 files.  Example: a node represents a subnet, with links to the hosts
 on that subnet.
 
@@ -72,7 +72,7 @@ License
 
 At this point, the project, aside from components (nitrogen, jquery,
 cowboy) obviously the work of other authors, is entirely the product
-of Stephen P. Schaefer, and I make that portion availble under the
+of Stephen P. Schaefer, and I make that portion available under the
 terms of the GNU Affero General Public License version 3.0 or later.
 
 Design and implementation
