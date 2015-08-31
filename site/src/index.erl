@@ -17,44 +17,52 @@ body() ->
     OutlineBody = [ #outline{ gn_id={?MODULE,binary_to_list(Node)} } || Node <- Roots ],
     [FirstNode|_] = Roots,
     #graph_node{ text = Text } = visiweave_node_server:read_node(FirstNode),
-    wf:wire(wf:f("jQuery('.resizable').resizable({handles: \"e\"})")),
+    wf:defer("$('.leftpanel').resizable(
+	{
+           handles: 'e',
+           stop:    function(event, ui) {
+	     ui.size.height=screen.availHeight-10;
+	     $('.leftpanel').css('height', screen.availHeight-50);
+	     $('.leftpanel textarea').css('height', screen.availHeight-50);
+	     $('.container').css('overflow','hidden');
+           },
+           resize:  function(event, ui) {
+             var leftpw=ui.size.width;
+             $('.rightpanel').css('left', (leftpw+10)+'px');
+             var rightpt=$('.rightpanel textarea');
+             rightpt.css('left', (leftpw+15)+'px');
+             rightpt.css('width', (screen.availWidth-(leftpw+20))+'px');
+           }
+        });"),
     wf:wire(textarea, textarea, #event{ type=blur, postback=blur_text }),
+    wf:defer(#script{ script="$('.rightpanel, .textarea').css('height', (screen.availHeight-5)+'px');" }),
     wf:defer(".gn_"++binary_to_list(FirstNode), #script{ script=wf:f("$(~p).focus()", [".gn_"++binary_to_list(FirstNode)]) }),
     [
 	#flash{},
 	#panel{
-	    style="height:100%;margin-left:50px;margin-right:50px;margin-top:0px;",
-	    body=
-	    #table{
-		style="height:100%;width:100%",
-		rows=[
-		    #tablerow{
-			cells=[
-			    #tablecell{
-				class="resizable",
-				style="border-right:1px solid;vertical-align:top",
-				body=
-				#panel{
-				    style="margin-top:0px",
-				    body=OutlineBody
-				}
-			    },
-			    #tablecell{
-				style="height:100%;padding:2px 2px 10px 2px;",
-				class="resizable",    
-				body=[
-				    #textarea{
-					id="textarea",
-					style="height:99%;width:99%;display:table-cell;border:none",
-					text=binary_to_list(Text)},
-				    #hidden{
-					id="current_node", text=binary_to_list(FirstNode)}
-				]
-			    }
-		    ]}
-		]
-	    }
-    }].
+	    class="container",
+	    style="position: relative; height: 99%; margin-left:0px; margin-right:0px; margin-top:0px; margin-bottom:10px; overflow-x: hidden; overflow-y: hidden;",
+	    body=[
+		#panel{
+		    class="leftpanel",
+		    style="position: absolute; top: 0; bottom: 5px; width: 500px; overflow-y: auto; border-right: 2px; border-style: solid; border-color:#000; overflow-x: hidden;",
+		    body=OutlineBody
+		},
+		#panel{
+		    class="rightpanel",
+		    style="position: absolute; top: 0; bottom: 5px; left: 510px;",
+		    body=[
+			#textarea{
+			    id="textarea",
+			    style="border: none; overflow-y: auto; postition: absolute; top: 0; bottom: 5px; width:500px;",
+			    text=binary_to_list(Text)},
+			#hidden{
+			    id="current_node", text=binary_to_list(FirstNode)}
+		    ]
+		}
+	    ]
+	}
+    ].
 
 vw_element_event(Other) ->
     wf:update(placeholder, Other),

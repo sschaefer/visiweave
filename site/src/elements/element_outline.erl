@@ -218,6 +218,10 @@ api_event(control_key, _Tag, [KeyCode, UnitID, ModuleString, Parent, ChildIndex]
 		    %      * child removed: remove
 		    %      * child added: add collapsed
 		    %      * add/removes look like (add, index, key) or (remove, index)
+		    %  * collapse all
+		    %  * find first instance of Key on page
+                    %  * expand all parents of Key
+                    %  * expand Key
 	    end;
 	_ ->
 	    Msg = wf:f("Control-~p pressed",[KeyCode]),
